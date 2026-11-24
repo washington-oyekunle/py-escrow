@@ -57,6 +57,62 @@ def test_dispute_flow():
     assert agr.milestones[0].status == MilestoneStatus.DISPUTED
 
 
+def test_resolve_dispute_release():
+    engine = EscrowEngine()
+    k1, k2, k3 = generate_key(), generate_key(), generate_key()
+    parties = [
+        Party("a", "payer", k1),
+        Party("b", "payee", k2),
+        Party("c", "arbitrator", k3),
+    ]
+    milestones = [Milestone("m1", "Work", 1000, 1)]
+
+    engine.create_agreement("r1", parties, milestones)
+    engine.activate("r1", "a", k1)
+    engine.open_dispute("r1", "m1", "a", "Incomplete delivery", k1)
+
+    engine.resolve_dispute("r1", "m1", "c", "release", k3)
+
+    agr = engine.agreements["r1"]
+    assert agr.milestones[0].status == MilestoneStatus.RELEASED
+    assert agr.status.value == "completed"
+
+
+def test_resolve_dispute_cancel():
+    engine = EscrowEngine()
+    k1, k2, k3 = generate_key(), generate_key(), generate_key()
+    parties = [
+        Party("a", "payer", k1),
+        Party("b", "payee", k2),
+        Party("c", "arbitrator", k3),
+    ]
+    milestones = [Milestone("m1", "Work", 1000, 1)]
+
+    engine.create_agreement("r2", parties, milestones)
+    engine.activate("r2", "a", k1)
+    engine.open_dispute("r2", "m1", "b", "Non-payment", k2)
+
+    engine.resolve_dispute("r2", "m1", "c", "cancel", k3)
+
+    agr = engine.agreements["r2"]
+    assert agr.milestones[0].status == MilestoneStatus.CANCELLED
+    assert agr.status.value == "completed"
+
+
+def test_resolve_dispute_requires_arbitrator():
+    engine = EscrowEngine()
+    k1, k2 = generate_key(), generate_key()
+    parties = [Party("a", "payer", k1), Party("b", "payee", k2)]
+    milestones = [Milestone("m1", "Work", 500, 1)]
+
+    engine.create_agreement("r3", parties, milestones)
+    engine.activate("r3", "a", k1)
+    engine.open_dispute("r3", "m1", "a", "issue", k1)
+
+    with pytest.raises(PermissionError):
+        engine.resolve_dispute("r3", "m1", "a", "release", k1)
+
+
 def test_unauthorized_rejected():
     engine = EscrowEngine()
     k1 = generate_key()
