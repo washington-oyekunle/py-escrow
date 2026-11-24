@@ -135,6 +135,59 @@ class EscrowEngine:
         )
         return agreement
 
+    def resolve_dispute(
+        self,
+        agreement_id: str,
+        milestone_id: str,
+        arbitrator_id: str,
+        outcome: str,  # "release" or "cancel"
+        key: bytes,
+    ) -> Agreement:
+        """Arbitrator resolves a disputed milestone.
+
+        outcome="release" marks it RELEASED and continues the agreement.
+        outcome="cancel" marks it CANCELLED and may complete or keep the agreement disputed.
+        """
+        if outcome not in ("release", "cancel"):
+            raise ValueError("outcome must be 'release' or 'cancel'")
+
+        agreement = self._get(agreement_id)
+        milestone = self._get_milestone(agreement, milestone_id)
+        if milestone.status != MilestoneStatus.DISPUTED:
+            raise ValueError("Milestone is not in disputed state")
+
+        arb = self._require_party(agreement, arbitrator_id)
+        if arb.role != "arbitrator":
+            raise PermissionError("Only an arbitrator can resolve disputes")
+
+        if outcome == "release":
+            milestone.status = MilestoneStatus.RELEASED
+            milestone.released_at = time.time()
+            event_type = "dispute_resolved_release"
+        else:
+            milestone.status = MilestoneStatus.CANCELLED
+            event_type = "dispute_resolved_cancel"
+
+        self._append_event(
+            agreement,
+            event_type,
+            {"milestone": milestone_id, "by": arbitrator_id, "outcome": outcome},
+            signer_id=arbitrator_id,
+            key=key,
+        )
+
+        # If all milestones are now terminal (RELEASED or CANCELLED), mark agreement completed
+        terminal = {MilestoneStatus.RELEASED, MilestoneStatus.CANCELLED}
+        if all(m.status in terminal for m in agreement.milestones):
+            agreement.status = AgreementStatus.COMPLETED
+            self._append_event(agreement, "agreement_completed", {})
+        else:
+            # Restore to ACTIVE if no other open disputes
+            if not any(m.status == MilestoneStatus.DISPUTED for m in agreement.milestones):
+                agreement.status = AgreementStatus.ACTIVE
+
+        return agreement
+
     def update_merkle(self, agreement_id: str) -> bytes:
         agreement = self._get(agreement_id)
         leaves = [
