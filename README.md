@@ -18,7 +18,7 @@ Most escrow systems are either centralized platforms or heavy smart-contract dep
 - Multi-party escrow agreements with arbitrary number of parties
 - Milestone-based releases with configurable thresholds
 - Cryptographic signatures (HMAC-SHA256 by default; easy to swap for real ECDSA)
-- Dispute and arbitration flows
+- Dispute and arbitration flows (including arbitrator `resolve_dispute`)
 - Merkle-rooted state snapshots for efficient verification
 - Deterministic event log
 - Full unit-test coverage of core paths
