@@ -17,7 +17,9 @@ Most escrow systems are either centralized platforms or heavy smart-contract dep
 
 - Multi-party escrow agreements with arbitrary number of parties
 - Milestone-based releases with configurable thresholds
+- Explicit funding step (`fund_milestone`) before approval
 - Cryptographic signatures (HMAC-SHA256 by default; easy to swap for real ECDSA)
+- Signer key verification against registered party keys
 - Dispute and arbitration flows (including arbitrator `resolve_dispute`)
 - Merkle-rooted state snapshots for efficient verification
 - Deterministic event log
@@ -36,7 +38,7 @@ python -m py_escrow.cli demo
 ## Architecture
 
 ```
-Agreement → Milestones → Signatures → State Machine → Merkle Root
+Agreement → Milestones → Funding → Signatures → State Machine → Merkle Root
                       ↘
                    Event Log
 ```

@@ -26,6 +26,9 @@ def test_full_happy_path():
     engine.activate("test-1", "a", k1)
     assert agr.status.value == "active"
 
+    engine.fund_milestone("test-1", "m1", "a", k1)
+    assert agr.milestones[0].status == MilestoneStatus.FUNDED
+
     engine.approve_milestone("test-1", "m1", "a", k1)
     engine.approve_milestone("test-1", "m1", "b", k2)
     assert agr.milestones[0].status == MilestoneStatus.APPROVED
@@ -33,13 +36,14 @@ def test_full_happy_path():
     engine.release_milestone("test-1", "m1", "a", k1)
     assert agr.milestones[0].status == MilestoneStatus.RELEASED
 
+    engine.fund_milestone("test-1", "m2", "a", k1)
     engine.approve_milestone("test-1", "m2", "b", k2)
     engine.release_milestone("test-1", "m2", "a", k1)
     assert agr.status.value == "completed"
 
     root = engine.update_merkle("test-1")
     assert len(root) == 32
-    assert len(agr.events) >= 6
+    assert len(agr.events) >= 8
 
 
 def test_dispute_flow():
@@ -122,3 +126,28 @@ def test_unauthorized_rejected():
 
     with pytest.raises(PermissionError):
         engine.activate("u1", "stranger", generate_key())
+
+
+def test_wrong_key_rejected():
+    engine = EscrowEngine()
+    k1 = generate_key()
+    wrong_key = generate_key()
+    parties = [Party("a", "payer", k1)]
+    milestones = [Milestone("m1", "Work", 100, 1)]
+    engine.create_agreement("u2", parties, milestones)
+
+    with pytest.raises(PermissionError):
+        engine.activate("u2", "a", wrong_key)
+
+
+def test_fund_milestone():
+    engine = EscrowEngine()
+    k1 = generate_key()
+    parties = [Party("a", "payer", k1)]
+    milestones = [Milestone("m1", "Work", 100, 1)]
+    engine.create_agreement("f1", parties, milestones)
+    engine.activate("f1", "a", k1)
+    engine.fund_milestone("f1", "m1", "a", k1)
+
+    agr = engine.agreements["f1"]
+    assert agr.milestones[0].status == MilestoneStatus.FUNDED

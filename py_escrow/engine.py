@@ -39,7 +39,7 @@ class EscrowEngine:
         agreement = self._get(agreement_id)
         if agreement.status != AgreementStatus.DRAFT:
             raise ValueError("Only draft agreements can be activated")
-        self._require_party(agreement, signer_id)
+        self._verify_signer(agreement, signer_id, key)
         self._append_event(
             agreement,
             "activated",
@@ -48,6 +48,31 @@ class EscrowEngine:
             key=key,
         )
         agreement.status = AgreementStatus.ACTIVE
+        return agreement
+
+    def fund_milestone(
+        self,
+        agreement_id: str,
+        milestone_id: str,
+        signer_id: str,
+        key: bytes,
+    ) -> Agreement:
+        """Mark a milestone as funded (typically by the payer)."""
+        agreement = self._get(agreement_id)
+        if agreement.status != AgreementStatus.ACTIVE:
+            raise ValueError("Agreement is not active")
+        milestone = self._get_milestone(agreement, milestone_id)
+        if milestone.status != MilestoneStatus.PENDING:
+            raise ValueError("Only pending milestones can be funded")
+        self._verify_signer(agreement, signer_id, key)
+        milestone.status = MilestoneStatus.FUNDED
+        self._append_event(
+            agreement,
+            "milestone_funded",
+            {"milestone": milestone_id, "by": signer_id, "amount": milestone.amount},
+            signer_id=signer_id,
+            key=key,
+        )
         return agreement
 
     def approve_milestone(
@@ -66,7 +91,7 @@ class EscrowEngine:
         if signer_id in milestone.approvals:
             raise ValueError("Already approved by this party")
 
-        self._require_party(agreement, signer_id)
+        self._verify_signer(agreement, signer_id, key)
         milestone.approvals.append(signer_id)
         self._append_event(
             agreement,
@@ -96,7 +121,7 @@ class EscrowEngine:
         milestone = self._get_milestone(agreement, milestone_id)
         if milestone.status != MilestoneStatus.APPROVED:
             raise ValueError("Milestone must be approved before release")
-        self._require_party(agreement, signer_id)
+        self._verify_signer(agreement, signer_id, key)
 
         milestone.status = MilestoneStatus.RELEASED
         milestone.released_at = time.time()
@@ -123,7 +148,7 @@ class EscrowEngine:
     ) -> Agreement:
         agreement = self._get(agreement_id)
         milestone = self._get_milestone(agreement, milestone_id)
-        self._require_party(agreement, signer_id)
+        self._verify_signer(agreement, signer_id, key)
         milestone.status = MilestoneStatus.DISPUTED
         agreement.status = AgreementStatus.DISPUTED
         self._append_event(
@@ -156,7 +181,7 @@ class EscrowEngine:
         if milestone.status != MilestoneStatus.DISPUTED:
             raise ValueError("Milestone is not in disputed state")
 
-        arb = self._require_party(agreement, arbitrator_id)
+        arb = self._verify_signer(agreement, arbitrator_id, key)
         if arb.role != "arbitrator":
             raise PermissionError("Only an arbitrator can resolve disputes")
 
@@ -210,6 +235,13 @@ class EscrowEngine:
             if m.milestone_id == milestone_id:
                 return m
         raise KeyError("Milestone not found")
+
+    def _verify_signer(self, agreement: Agreement, signer_id: str, key: bytes) -> Party:
+        """Require the signer is a party and the provided key matches their registered key."""
+        party = self._require_party(agreement, signer_id)
+        if key != party.public_key:
+            raise PermissionError("Signing key does not match the party's registered key")
+        return party
 
     def _require_party(self, agreement: Agreement, party_id: str) -> Party:
         for p in agreement.parties:
