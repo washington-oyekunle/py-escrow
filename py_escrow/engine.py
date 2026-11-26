@@ -223,6 +223,27 @@ class EscrowEngine:
         agreement.merkle_root = root
         return root
 
+    def verify_event_signatures(self, agreement_id: str) -> bool:
+        """Verify all signed events in the agreement's event log.
+
+        Reconstructs the signed message for each event that has a signature
+        and checks it against the party's registered key.
+        Returns True if all signatures are valid (or no signed events).
+        Raises ValueError on invalid signature.
+        """
+        agreement = self._get(agreement_id)
+        for event in agreement.events:
+            if event.signature is None or event.signer_id is None:
+                continue
+            party = self._require_party(agreement, event.signer_id)
+            # Reconstruct the message exactly as signed in _append_event
+            message = f"{event.event_type}|{event.data}|{event.timestamp}".encode()
+            if not verify(party.public_key, message, event.signature):
+                raise ValueError(
+                    f"Invalid signature on event {event.event_type} by {event.signer_id}"
+                )
+        return True
+
     # --- internals ---
 
     def _get(self, agreement_id: str) -> Agreement:
