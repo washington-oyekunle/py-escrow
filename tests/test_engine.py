@@ -44,6 +44,7 @@ def test_full_happy_path():
     root = engine.update_merkle("test-1")
     assert len(root) == 32
     assert len(agr.events) >= 8
+    assert engine.verify_event_signatures("test-1") is True
 
 
 def test_dispute_flow():
@@ -59,6 +60,7 @@ def test_dispute_flow():
     agr = engine.agreements["d1"]
     assert agr.status.value == "disputed"
     assert agr.milestones[0].status == MilestoneStatus.DISPUTED
+    assert engine.verify_event_signatures("d1") is True
 
 
 def test_resolve_dispute_release():
@@ -80,6 +82,7 @@ def test_resolve_dispute_release():
     agr = engine.agreements["r1"]
     assert agr.milestones[0].status == MilestoneStatus.RELEASED
     assert agr.status.value == "completed"
+    assert engine.verify_event_signatures("r1") is True
 
 
 def test_resolve_dispute_cancel():
@@ -151,3 +154,4 @@ def test_fund_milestone():
 
     agr = engine.agreements["f1"]
     assert agr.milestones[0].status == MilestoneStatus.FUNDED
+    assert engine.verify_event_signatures("f1") is True
