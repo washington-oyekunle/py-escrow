@@ -20,6 +20,7 @@ Most escrow systems are either centralized platforms or heavy smart-contract dep
 - Explicit funding step (`fund_milestone`) before approval
 - Cryptographic signatures (HMAC-SHA256 by default; easy to swap for real ECDSA)
 - Signer key verification against registered party keys
+- Full event-log signature verification (`verify_event_signatures`)
 - Dispute and arbitration flows (including arbitrator `resolve_dispute`)
 - Merkle-rooted state snapshots for efficient verification
 - Deterministic event log
@@ -40,7 +41,7 @@ python -m py_escrow.cli demo
 ```
 Agreement → Milestones → Funding → Signatures → State Machine → Merkle Root
                       ↘
-                   Event Log
+                   Event Log (signed & verifiable)
 ```
 
 All state transitions are explicit, signed, and append-only.
