@@ -278,12 +278,13 @@ class EscrowEngine:
         signer_id: Optional[str] = None,
         key: Optional[bytes] = None,
     ) -> None:
-        message = f"{event_type}|{data}|{time.time()}".encode()
+        ts = time.time()
+        message = f"{event_type}|{data}|{ts}".encode()
         signature = None
         if key is not None and signer_id is not None:
             signature = sign(key, message)
         event = Event(
-            timestamp=time.time(),
+            timestamp=ts,
             event_type=event_type,
             data=data,
             signature=signature,
