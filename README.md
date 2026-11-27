@@ -22,6 +22,7 @@ Most escrow systems are either centralized platforms or heavy smart-contract dep
 - Signer key verification against registered party keys
 - Full event-log signature verification (`verify_event_signatures`)
 - Dispute and arbitration flows (including arbitrator `resolve_dispute`)
+- Agreement cancellation (`cancel_agreement`) with protection against post-release cancellation by non-arbitrators
 - Merkle-rooted state snapshots for efficient verification
 - Deterministic event log
 - Full unit-test coverage of core paths
