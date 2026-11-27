@@ -155,3 +155,65 @@ def test_fund_milestone():
     agr = engine.agreements["f1"]
     assert agr.milestones[0].status == MilestoneStatus.FUNDED
     assert engine.verify_event_signatures("f1") is True
+
+
+def test_cancel_agreement_before_release():
+    engine = EscrowEngine()
+    k1, k2 = generate_key(), generate_key()
+    parties = [Party("a", "payer", k1), Party("b", "payee", k2)]
+    milestones = [Milestone("m1", "Work", 500, 1)]
+
+    engine.create_agreement("c1", parties, milestones)
+    engine.activate("c1", "a", k1)
+    engine.fund_milestone("c1", "m1", "a", k1)
+
+    engine.cancel_agreement("c1", "a", k1, reason="Mutual agreement to cancel")
+
+    agr = engine.agreements["c1"]
+    assert agr.status.value == "cancelled"
+    assert agr.milestones[0].status == MilestoneStatus.CANCELLED
+    assert engine.verify_event_signatures("c1") is True
+
+
+def test_cancel_agreement_blocked_after_release():
+    engine = EscrowEngine()
+    k1, k2 = generate_key(), generate_key()
+    parties = [Party("a", "payer", k1), Party("b", "payee", k2)]
+    milestones = [Milestone("m1", "Work", 500, 1)]
+
+    engine.create_agreement("c2", parties, milestones)
+    engine.activate("c2", "a", k1)
+    engine.fund_milestone("c2", "m1", "a", k1)
+    engine.approve_milestone("c2", "m1", "b", k2)
+    engine.release_milestone("c2", "m1", "a", k1)
+
+    with pytest.raises(PermissionError):
+        engine.cancel_agreement("c2", "a", k1, reason="Too late")
+
+
+def test_arbitrator_can_cancel_after_release():
+    engine = EscrowEngine()
+    k1, k2, k3 = generate_key(), generate_key(), generate_key()
+    parties = [
+        Party("a", "payer", k1),
+        Party("b", "payee", k2),
+        Party("c", "arbitrator", k3),
+    ]
+    milestones = [
+        Milestone("m1", "Phase 1", 1000, 1),
+        Milestone("m2", "Phase 2", 2000, 1),
+    ]
+
+    engine.create_agreement("c3", parties, milestones)
+    engine.activate("c3", "a", k1)
+    engine.fund_milestone("c3", "m1", "a", k1)
+    engine.approve_milestone("c3", "m1", "b", k2)
+    engine.release_milestone("c3", "m1", "a", k1)
+
+    engine.cancel_agreement("c3", "c", k3, reason="Force majeure - remaining work impossible")
+
+    agr = engine.agreements["c3"]
+    assert agr.status.value == "cancelled"
+    assert agr.milestones[0].status == MilestoneStatus.RELEASED
+    assert agr.milestones[1].status == MilestoneStatus.CANCELLED
+    assert engine.verify_event_signatures("c3") is True
