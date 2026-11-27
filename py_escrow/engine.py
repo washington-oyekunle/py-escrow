@@ -213,6 +213,47 @@ class EscrowEngine:
 
         return agreement
 
+    def cancel_agreement(
+        self,
+        agreement_id: str,
+        signer_id: str,
+        key: bytes,
+        reason: str = "",
+    ) -> Agreement:
+        """Cancel the entire agreement.
+
+        Parties may cancel only if no milestones have been released.
+        Arbitrators may cancel at any time (useful for force-majeure or mutual agreement).
+        All non-terminal milestones are marked CANCELLED.
+        """
+        agreement = self._get(agreement_id)
+        if agreement.status in (AgreementStatus.COMPLETED, AgreementStatus.CANCELLED):
+            raise ValueError("Agreement is already in a terminal state")
+
+        party = self._verify_signer(agreement, signer_id, key)
+
+        has_releases = any(
+            m.status == MilestoneStatus.RELEASED for m in agreement.milestones
+        )
+        if has_releases and party.role != "arbitrator":
+            raise PermissionError(
+                "Cannot cancel an agreement with released milestones unless you are an arbitrator"
+            )
+
+        agreement.status = AgreementStatus.CANCELLED
+        for m in agreement.milestones:
+            if m.status not in (MilestoneStatus.RELEASED, MilestoneStatus.CANCELLED):
+                m.status = MilestoneStatus.CANCELLED
+
+        self._append_event(
+            agreement,
+            "agreement_cancelled",
+            {"by": signer_id, "reason": reason},
+            signer_id=signer_id,
+            key=key,
+        )
+        return agreement
+
     def update_merkle(self, agreement_id: str) -> bytes:
         agreement = self._get(agreement_id)
         leaves = [
