@@ -1,6 +1,6 @@
 """py-escrow: pure-Python multi-party escrow engine."""
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 from .models import Agreement, Milestone, Party
 from .engine import EscrowEngine
