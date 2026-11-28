@@ -217,3 +217,27 @@ def test_arbitrator_can_cancel_after_release():
     assert agr.milestones[0].status == MilestoneStatus.RELEASED
     assert agr.milestones[1].status == MilestoneStatus.CANCELLED
     assert engine.verify_event_signatures("c3") is True
+
+
+def test_serialization_roundtrip():
+    engine = EscrowEngine()
+    k1 = generate_key()
+    parties = [Party("a", "payer", k1)]
+    milestones = [Milestone("m1", "Work", 100, 1)]
+    engine.create_agreement("ser-1", parties, milestones)
+    engine.activate("ser-1", "a", k1)
+    engine.fund_milestone("ser-1", "m1", "a", k1)
+
+    exported = engine.export_agreement("ser-1")
+    assert isinstance(exported, dict)
+    assert exported["agreement_id"] == "ser-1"
+    assert exported["status"] == "active"
+
+    # Import into a fresh engine
+    engine2 = EscrowEngine()
+    imported = engine2.import_agreement(exported)
+    assert imported.agreement_id == "ser-1"
+    assert imported.status.value == "active"
+    assert len(imported.milestones) == 1
+    assert imported.milestones[0].status == MilestoneStatus.FUNDED
+    assert engine2.verify_event_signatures("ser-1") is True
