@@ -25,6 +25,7 @@ Most escrow systems are either centralized platforms or heavy smart-contract dep
 - Agreement cancellation (`cancel_agreement`) with protection against post-release cancellation by non-arbitrators
 - Merkle-rooted state snapshots for efficient verification
 - Deterministic event log
+- **JSON serialization**: `to_dict`/`from_dict` on models + `export_agreement`/`import_agreement` on the engine for persistence
 - Full unit-test coverage of core paths
 - Clean CLI for demos and manual operation
 
