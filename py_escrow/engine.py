@@ -1,6 +1,6 @@
 """Escrow state machine."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import time
 
 from .crypto import merkle_root, sign, verify
@@ -284,6 +284,19 @@ class EscrowEngine:
                     f"Invalid signature on event {event.event_type} by {event.signer_id}"
                 )
         return True
+
+    def export_agreement(self, agreement_id: str) -> Dict[str, Any]:
+        """Export an agreement to a serializable dictionary (JSON-friendly)."""
+        agreement = self._get(agreement_id)
+        return agreement.to_dict()
+
+    def import_agreement(self, data: Dict[str, Any]) -> Agreement:
+        """Import an agreement from a dictionary (e.g. loaded from JSON)."""
+        agreement = Agreement.from_dict(data)
+        if agreement.agreement_id in self.agreements:
+            raise ValueError("Agreement ID already exists")
+        self.agreements[agreement.agreement_id] = agreement
+        return agreement
 
     # --- internals ---
 
